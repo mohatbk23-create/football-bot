@@ -58,12 +58,15 @@ def main():
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
-
+async def post_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    channel_id = "@DZFootballNews"
+    text = "⚽ *نتائج ومباريات اليوم المباشرة* ⚽\n\nتابعوا القناة لتغطية شاملة!"
+    await context.bot.send_message(chat_id=channel_id, text=text, parse_mode='Markdown')
     # تشغيل تطبيق تلغرام
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("matches", matches))
-    
+    application.add_handler(CommandHandler("post", post_to_channel))
     print("Starting bot polling...")
     application.run_polling(drop_pending_updates=True)
 
