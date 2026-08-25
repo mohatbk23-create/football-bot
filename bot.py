@@ -1,19 +1,26 @@
 import os
 import logging
-import asyncio
+import threading
 import requests
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# إعداد سيرفر Flask
+# 1. إعداد خادم Flask للرد على Render
 app_web = Flask(__name__)
 
 @app_web.route('/')
 def home():
-    return "Football Bot is Running!"
+    return "Bot is active!"
 
-# إعداد السجلات
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app_web.run(host='0.0.0.0', port=port)
+
+# تشغيل السيرفر في خلفية النظام
+threading.Thread(target=run_flask, daemon=True).start()
+
+# 2. إعداد السجلات
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 TELEGRAM_TOKEN = "8854322628:AAHaNUHbOwPOPfMpGaTnG6LXu27kCDmPy4K8"
@@ -63,26 +70,9 @@ async def get_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.error(f"Error fetching matches: {e}")
         await status_msg.edit_text("حدث خطأ أثناء جلب البيانات.")
 
-async def main():
-    # تشغيل Flask في الخلفية
-    port = int(os.environ.get("PORT", 8080))
-    from gevent.pywsgi import WSGIServer
-    http_server = WSGIServer(('0.0.0.0', port), app_web)
-    
-    loop = asyncio.get_event_loop()
-    loop.run_in_executor(None, http_server.serve_forever)
-
-    # تشغيل بوت تلغرام
-    telegram_app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    telegram_app.add_handler(CommandHandler("start", start))
-    telegram_app.add_handler(CommandHandler("matches", get_matches))
-
-    await telegram_app.initialize()
-    await telegram_app.start()
-    await telegram_app.updater.start_polling()
-
-    # الإبقاء على الخدمة تعمل
-    await asyncio.Event().wait()
-
+# 3. تشغيل البوت
 if __name__ == '__main__':
-    asyncio.run(main())
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("matches", get_matches))
+    app.run_polling(drop_pending_updates=True)
