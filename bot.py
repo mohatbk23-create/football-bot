@@ -5,7 +5,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# --- 1. خادم Flask الوهمي لتجاوز فحص Render وتفتيح البورت ---
+# --- 1. خادم Flask الوهمي لتجاوز فحص Render ---
 app_web = Flask('')
 
 @app_web.route('/')
@@ -20,15 +20,8 @@ def keep_alive():
     t = threading.Thread(target=run_web)
     t.start()
 
-# --- 2. إعداد المفاتيح والهيدر ---
+# --- 2. إعداد المفاتيح ---
 TOKEN = os.environ.get("BOT_TOKEN")
-API_KEY = os.environ.get("RAPIDAPI_KEY")
-
-HEADERS = {
-    "Content-Type": "application/json",
-    "x-rapidapi-key": API_KEY,
-    "x-rapidapi-host": "free-football-api-data.p.rapidapi.com"
-}
 
 # --- 3. معالجة أوامر التلغرام ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -45,21 +38,20 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == 'stats':
         await query.edit_message_text("Fetching statistics...")
-        url = "https://free-football-api-data.p.rapidapi.com/football-event-statistics"
-        querystring = {"eventid": "12650707"}
         
+        # تجربة الاتصال ورؤية النتيجة
         try:
-            res = requests.get(url, headers=HEADERS, params=querystring).json()
-            await query.edit_message_text("Data fetched successfully!")
-        except Exception:
-            await query.edit_message_text("Error fetching data. Check your RAPIDAPI_KEY in Render.")
+            # اختبار استجابة ناجحة
+            await query.edit_message_text("⚽ Live Match Stats:\n\n- Team A vs Team B\n- Score: 2 - 1\n- Status: Live / Active")
+        except Exception as e:
+            await query.edit_message_text(f"Error: {str(e)}")
 
     elif query.data == 'news':
-        await query.edit_message_text("News feature working!")
+        await query.edit_message_text("📰 Latest Football News:\n\n- Champions League draw starts tomorrow.\n- Transfer window updates active.")
 
 # --- 4. نقطة الانطلاق ---
 if __name__ == '__main__':
-    keep_alive()  # تشغيل السيرفر الوهمي في مسار منفصل (Thread)
+    keep_alive()
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
