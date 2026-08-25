@@ -1,78 +1,71 @@
 import os
-import logging
 import threading
 import requests
 from flask import Flask
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-# 1. إعداد خادم Flask للرد على Render
-app_web = Flask(__name__)
+# --- 1. سيرفر Flask للحفاظ على عمل Render ---
+app = Flask(__name__)
 
-@app_web.route('/')
+@app.route('/')
 def home():
-    return "Bot is active!"
+    return "Bot is running live!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
-    app_web.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)
 
-# تشغيل السيرفر في خلفية النظام
-threading.Thread(target=run_flask, daemon=True).start()
-
-# 2. إعداد السجلات
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
+# --- 2. إعدادات التوكن والمفاتيح من متغيرات البيئة ---
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-FOOTBALL_API_KEY = "4b534deb375a4188948504292268eff3"
+FOOTBALL_API_KEY = os.environ.get("FOOTBALL_API_KEY", "73b64f33ca5c479fbccbf5cb9ef7aa9a")
 
-HEADERS = {'X-Auth-Token': FOOTBALL_API_KEY}
-
+# --- 3. اوامر التلغرام ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "أهلاً بك في بوت نتائج المباريات! ⚽\n\n"
-        "أرسل /matches لعرض نتائج ومباريات اليوم."
-    )
+    await update.message.reply_text("أهلاً بك! استخدم الأمر /matches لمعرفة مباريات اليوم.")
 
-async def get_matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    status_msg = await update.message.reply_text("جاري جلب نتائج ومباريات اليوم... ⏳")
+async def matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = "https://api.football-data.org/v4/matches"
+    headers = {"X-Auth-Token": FOOTBALL_API_KEY}
     
     try:
-        response = requests.get(url, headers=HEADERS)
+        response = requests.get(url, headers=headers)
         data = response.json()
-        matches = data.get('matches', [])
-
-        if not matches:
-            await status_msg.edit_text("لا توجد مباريات مسجلة اليوم في الدوريات الكبرى.")
+        matches_list = data.get("matches", [])
+        
+        if not matches_list:
+            await update.message.reply_text("لا توجد مباريات جارية أو محدودة اليوم.")
             return
 
-        text = "⚽ *مباريات اليوم والنتائج:*\n\n"
-        for m in matches[:10]:
-            home = m['homeTeam']['name']
-            away = m['awayTeam']['name']
-            status = m['status']
+        msg = "⚽ *مباريات اليوم:*\n\n"
+        for m in matches_list[:10]:
+            home = m["homeTeam"]["name"]
+            away = m["awayTeam"]["name"]
+            status = m["status"]
+            msg += f"• {home} vs {away} ({status})\n"
             
-            if status == 'FINISHED':
-                score_home = m['score']['fullTime']['home']
-                score_away = m['score']['fullTime']['away']
-                text += f"🔴 {home} {score_home} - {score_away} {away} (انتهت)\n"
-            elif status == 'IN_PLAY':
-                score_home = m['score']['fullTime']['home']
-                score_away = m['score']['fullTime']['away']
-                text += f"🟢 {home} {score_home} - {score_away} {away} (جارية الآن)\n"
-            else:
-                text += f"⚪ {home} vs {away} (لم تبدأ)\n"
-
-        await status_msg.edit_text(text, parse_mode='Markdown')
-
+        await update.message.reply_text(msg, parse_mode="Markdown")
     except Exception as e:
-        logging.error(f"Error fetching matches: {e}")
-        await status_msg.edit_text("حدث خطأ أثناء جلب البيانات.")
+        await update.message.reply_text("حدث خطأ أثناء جلب المباريات.")
 
-# 3. تشغيل البوت
-if __name__ == '__main__':
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("matches", get_matches))
-    app.run_polling(drop_pending_updates=True)
+# --- 4. تشغيل البوت والسيرفر ---
+def main():
+    if not TELEGRAM_TOKEN:
+        print("ERROR: TELEGRAM_TOKEN environment variable is missing!")
+        return
+
+    # تشغيل سيرفر Flask في background thread
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+
+    # تشغيل تطبيق تلغرام
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("matches", matches))
+    
+    print("Starting bot polling...")
+    application.run_polling(drop_pending_updates=True)
+
+if __name__ == "__main__":
+    main()
