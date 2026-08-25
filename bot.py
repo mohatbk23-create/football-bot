@@ -23,7 +23,7 @@ threading.Thread(target=run_flask, daemon=True).start()
 # 2. إعداد السجلات
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-TELEGRAM_TOKEN = "8854322628:AAESLIxn8HbmyPjfRZX65fenn5zEv9huOYs"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
 FOOTBALL_API_KEY = "4b534deb375a4188948504292268eff3"
 
 HEADERS = {'X-Auth-Token': FOOTBALL_API_KEY}
