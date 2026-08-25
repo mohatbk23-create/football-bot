@@ -16,57 +16,38 @@ def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# --- 2. إعدادات التوكن والمفاتيح من متغيرات البيئة ---
+# --- 2. إعدادات البوت والوظائف ---
 TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-FOOTBALL_API_KEY = os.environ.get("FOOTBALL_API_KEY", "73b64f33ca5c479fbccbf5cb9ef7aa9a")
 
-# --- 3. اوامر التلغرام ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("أهلاً بك! استخدم الأمر /matches لمعرفة مباريات اليوم.")
+    await update.message.reply_text("أهلاً بك في بوت نتائج المباريات المباشرة!")
 
 async def matches(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    url = "https://api.football-data.org/v4/matches"
-    headers = {"X-Auth-Token": FOOTBALL_API_KEY}
-    
-    try:
-        response = requests.get(url, headers=headers)
-        data = response.json()
-        matches_list = data.get("matches", [])
-        
-        if not matches_list:
-            await update.message.reply_text("لا توجد مباريات جارية أو محدودة اليوم.")
-            return
+    await update.message.reply_text("⚽ قائمة المباريات اليومية ستظهر هنا.")
 
-        msg = "⚽ *مباريات اليوم:*\n\n"
-        for m in matches_list[:10]:
-            home = m["homeTeam"]["name"]
-            away = m["awayTeam"]["name"]
-            status = m["status"]
-            msg += f"• {home} vs {away} ({status})\n"
-            
-        await update.message.reply_text(msg, parse_mode="Markdown")
-    except Exception as e:
-        await update.message.reply_text("حدث خطأ أثناء جلب المباريات.")
+async def post_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    channel_id = "@DZFootballNews"
+    text = "⚽ نتائج ومباريات اليوم المباشرة ⚽\n\nتابعوا القناة لتغطية شاملة!"
+    await context.bot.send_message(chat_id=channel_id, text=text, parse_mode='Markdown')
 
-# --- 4. تشغيل البوت والسيرفر ---
 def main():
     if not TELEGRAM_TOKEN:
         print("ERROR: TELEGRAM_TOKEN environment variable is missing!")
         return
 
-    # تشغيل سيرفر Flask في background thread
+    # تشغيل سيرفر Flask في الخلفية
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
-async def post_to_channel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    channel_id = "@DZFootballNews"
-    text = "⚽ *نتائج ومباريات اليوم المباشرة* ⚽\n\nتابعوا القناة لتغطية شاملة!"
-    await context.bot.send_message(chat_id=channel_id, text=text, parse_mode='Markdown')
+
     # تشغيل تطبيق تلغرام
     application = Application.builder().token(TELEGRAM_TOKEN).build()
+    
+    # تسجيل الأوامر
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("matches", matches))
     application.add_handler(CommandHandler("post", post_to_channel))
+
     print("Starting bot polling...")
     application.run_polling(drop_pending_updates=True)
 
