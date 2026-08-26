@@ -5,7 +5,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- 1. خادم Flask الوهمي لتجاوز فحص Render وتثبيت حالة Live ---
+# --- 1. خادم Flask الوهمي لتجاوز فحص Render ---
 app_web = Flask('')
 
 @app_web.route('/')
@@ -25,7 +25,7 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# --- 3. استخراج ميديا تيك توك بدون علامة مائية ---
+# --- 3. استخرج ميديا تيك توك بدون علامة مائية ---
 def get_clean_tiktok_url(tiktok_url):
     try:
         api_url = f"https://api.douyin.wtf/api?url={tiktok_url}"
@@ -106,4 +106,5 @@ if __name__ == '__main__':
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
     job_queue.run_repeating(auto_post_tiktok, interval=10800, first=30)
 
-    app.run_polling()
+    # إلغاء أي اتصال قديم فور التشغيل لتفادي خطأ 409
+    app.run_polling(drop_pending_updates=True)
