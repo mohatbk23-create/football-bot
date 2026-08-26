@@ -2,10 +2,10 @@ import os
 import threading
 import requests
 from flask import Flask
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- 1. خادم Flask الوهمي لتجاوز فحص Render وتحقيق حالة Live ---
+# --- 1. خادم Flask الوهمي لتجاوز فحص Render وتثبيت حالة Live ---
 app_web = Flask('')
 
 @app_web.route('/')
@@ -21,9 +21,8 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- 2. إعدادات المتغيرات والمعرفات ---
+# --- 2. الإعدادات والمعرفات ---
 TOKEN = os.environ.get("BOT_TOKEN")
-# استبدل المعرف أدناه بيوزر قناتك على تليغرام مع رمز @
 CHANNEL_ID = "@DZFootballNews"
 
 # --- 3. استخراج ميديا تيك توك بدون علامة مائية ---
@@ -33,63 +32,78 @@ def get_clean_tiktok_url(tiktok_url):
         response = requests.get(api_url, timeout=10).json()
         return response.get("nwm_video_url")
     except Exception as e:
-        print(f"Error fetching TikTok video: {e}")
+        print(f"Error TikTok API: {e}")
         return None
 
-# --- 4. أوامر البوت ---
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_text = (
-        "مرحباً بك في بوت كرة القدم والتغطية الرياضية! ⚽\n\n"
-        "البرامج والأوامر المتاحة:\n"
-        "• /post_text نص المنشور : لنشر خبر نصي في القناة.\n"
-        "• /post_tiktok رابط_الفيديو : لتنزيل فيديو تيك توك بدون علامة مائية ونشره مباشرة في القناة."
-    )
-    await update.message.reply_text(welcome_text)
+# --- 4. الأزرار التفاعلية أسفل المنشورات ---
+def get_channel_buttons():
+    keyboard = [
+        [
+            InlineKeyboardButton("💬 تواصل معنا", url="https://t.me/YourUsername"),
+            InlineKeyboardButton("📢 القناة الرسمية", url="https://t.me/DZFootballNews")
+        ],
+        [
+            InlineKeyboardButton("📲 حساب التيك توك", url="https://tiktok.com/@YourAccount")
+        ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-async def post_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text_to_post = " ".join(context.args)
-    if not text_to_post:
-        await update.message.reply_text("⚠️ يرجى كتابة النص بعد الأمر، مثال:\n`/post_text عاجل: فوز الفريق اليوم بنتيجة 2-0`", parse_mode='Markdown')
-        return
-
+# --- 5. دالة النشر التلقائي للأخبار ---
+async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     try:
-        await context.bot.send_message(chat_id=CHANNEL_ID, text=text_to_post)
-        await update.message.reply_text("✅ تم نشر الخبر النصي في القناة بنجاح!")
-    except Exception as e:
-        await update.message.reply_text(f"❌ حدث خطأ أثناء النشر: {str(e)}")
-
-async def post_tiktok(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("⚠️ يرجى إرسال رابط تيك توك بعد الأمر، مثال:\n`/post_tiktok https://vm.tiktok.com/XXXX/`", parse_mode='Markdown')
-        return
-
-    tiktok_url = context.args[0]
-    msg = await update.message.reply_text("⏳ جاري تنزيل الفيديو بدون علامة مائية ونشره في القناة...")
-
-    video_url = get_clean_tiktok_url(tiktok_url)
-
-    if not video_url:
-        await msg.edit_text("❌ فشل جلب الفيديو. تأكد من صحة الرابط أو حاول لاحقاً.")
-        return
-
-    try:
-        await context.bot.send_video(
+        news_text = (
+            "⚽ *أخبار كرة القدم | DZ Football*\n\n"
+            "📌 متابعة مستمرة لآخر التحديثات والأخبار الرياضية اليومية.\n\n"
+            "🔴 اشترك وشارك القناة ليصلك كل جديد!"
+        )
+        await context.bot.send_message(
             chat_id=CHANNEL_ID,
-            video=video_url,
-            caption="🎥 *لقطة اليوم من تيك توك* ⚽\n\n#كرة_قدم #تغطية_خاصة",
+            text=news_text,
+            reply_markup=get_channel_buttons(),
             parse_mode='Markdown'
         )
-        await msg.edit_text("✅ تم نشر الفيديو في القناة بنجاح وبدون علامة مائية!")
     except Exception as e:
-        await msg.edit_text(f"❌ حدث خطأ أثناء رفع الفيديو للقناة: {str(e)}")
+        print(f"Error auto posting news: {e}")
 
-# --- 5. نقطة انطلاق البوت ---
+# --- 6. دالة النشر التلقائي للفيديوهات ---
+async def auto_post_tiktok(context: ContextTypes.DEFAULT_TYPE):
+    sample_tiktok_url = "https://www.tiktok.com/@tiktok/video/7000000000000000000" 
+    video_url = get_clean_tiktok_url(sample_tiktok_url)
+    if video_url:
+        try:
+            await context.bot.send_video(
+                chat_id=CHANNEL_ID,
+                video=video_url,
+                caption="🎥 *لقطة اليوم الكروية من تيك توك* ⚽\n\n#كرة_قدم #DZFootballNews",
+                reply_markup=get_channel_buttons(),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            print(f"Error auto posting video: {e}")
+
+# --- 7. دالة استقبال الروابط في الخاص ---
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if "tiktok.com" in text:
+        await update.message.reply_text("⏳ جاري تحميل الفيديو بدون علامة مائية...")
+        video_url = get_clean_tiktok_url(text)
+        if video_url:
+            await update.message.reply_video(video=video_url, caption="✅ تم التحميل بنجاح بواسطة البوت!")
+        else:
+            await update.message.reply_text("❌ عذراً، تعذر تحميل الفيديو. تأكد من صحة الرابط.")
+    else:
+        await update.message.reply_text("أهلاً بك! أرسل لي رابط فيديو من تيك توك لتحميله بدون علامة مائية.")
+
+# --- 8. نقطة الانطلاق والجدولة التلقائية ---
 if __name__ == '__main__':
     keep_alive()
+    
     app = ApplicationBuilder().token(TOKEN).build()
+    
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("post_text", post_text))
-    app.add_handler(CommandHandler("post_tiktok", post_tiktok))
+    job_queue = app.job_queue
+    job_queue.run_repeating(auto_post_news, interval=3600, first=10)
+    job_queue.run_repeating(auto_post_tiktok, interval=10800, first=30)
 
     app.run_polling()
