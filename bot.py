@@ -5,7 +5,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- 1. خادم Flask لإبقاء البوت شغالاً على Render ---
+# --- 1. Flask Web Server ---
 app_web = Flask('')
 
 @app_web.route('/')
@@ -21,11 +21,11 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# --- 2. الإعدادات والمعرفات ---
+# --- 2. Configuration ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# --- 3. استخراج ميديا تيك توك بدون علامة مائية ---
+# --- 3. TikTok Media Extractor ---
 def get_clean_tiktok_url(tiktok_url):
     try:
         api_url = f"https://api.douyin.wtf/api?url={tiktok_url}"
@@ -35,7 +35,7 @@ def get_clean_tiktok_url(tiktok_url):
         print(f"Error TikTok API: {e}")
         return None
 
-# --- 4. الأزرار التفاعلية أسفل المنشورات ---
+# --- 4. Interactive Buttons ---
 def get_channel_buttons():
     keyboard = [
         [
@@ -48,7 +48,7 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 5. دالة النشر التلقائي لأبرز نتائج وتصنيفات الدوريات العالمية ---
+# --- 5. Auto Post Global Standings & Fixtures ---
 async def auto_post_global_standings(context: ContextTypes.DEFAULT_TYPE):
     try:
         global_text = (
@@ -87,7 +87,7 @@ async def auto_post_global_standings(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error auto posting global standings: {e}")
 
-# --- 6. دالة النشر التلقائي للأخبار العالمية ---
+# --- 6. Auto Post News ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     try:
         news_text = (
@@ -104,7 +104,7 @@ async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error auto posting news: {e}")
 
-# --- 7. دالة استقبال الرسائل والروابط في الخاص ---
+# --- 7. Private Message Handler ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if "tiktok.com" in text:
@@ -117,12 +117,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         welcome_text = (
             "أهلاً بك في بوت *DZ Football* الشامل! ⚽🌍\n\n"
-            "🔹 *في القناة:* ننشر تلقائياً الأخبار، تصنيفات كافة الدوريات العالمية (الإنجليزي، الإسباني، الإيطالي، دوري الأبطال) ومواعيد الأدوار.\n"
+            "🔹 *في القناة:* ننشر تلقائياً الأخبار، تصنيفات كافة الدوريات العالمية ومواعيد الأدوار.\n"
             "🔹 *في الخاص:* أرسل لي أي رابط من تيك توك لتحميل الفيديو فوراً بدون علامة مائية."
         )
         await update.message.reply_text(welcome_text, parse_mode='Markdown')
 
-# --- 8. نقطة الانطلاق والجدولة التلقائية ---
+# --- 8. Main Execution ---
 if __name__ == '__main__':
     keep_alive()
     
@@ -132,11 +132,7 @@ if __name__ == '__main__':
 
     job_queue = app.job_queue
     
-    # نشر الأخبار كل ساعة
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
-    
-    # نشر جدول الترتيب والأدوار العالمية كل 6 ساعات (21600 ثانية)
     job_queue.run_repeating(auto_post_global_standings, interval=21600, first=60)
 
-    # إلغاء أي اتصال قديم فور التشغيل لتفادي خطأ 409
     app.run_polling(drop_pending_updates=True)
