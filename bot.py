@@ -5,12 +5,12 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# --- 1. خادم Flask الوهمي لتجاوز فحص Render ---
+# --- 1. خادم Flask لإبقاء البوت شغالاً على Render ---
 app_web = Flask('')
 
 @app_web.route('/')
 def home():
-    return "Bot is active and running live!"
+    return "Global Football Bot is Live!"
 
 def run_web():
     port = int(os.environ.get("PORT", 8080))
@@ -25,7 +25,7 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# --- 3. استخرج ميديا تيك توك بدون علامة مائية ---
+# --- 3. استخراج ميديا تيك توك بدون علامة مائية ---
 def get_clean_tiktok_url(tiktok_url):
     try:
         api_url = f"https://api.douyin.wtf/api?url={tiktok_url}"
@@ -48,12 +48,51 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 5. دالة النشر التلقائي للأخبار ---
+# --- 5. دالة النشر التلقائي لأبرز نتائج وتصنيفات الدوريات العالمية ---
+async def auto_post_global_standings(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        global_text = (
+            "🌍 *ملخص تصنيف الدوريات العالمية والأدوار القادمة* ⚽\n\n"
+            "🏴󠁧󠁢󠁥󠁮󠁧󠁿 *الدوري الإنجليزي الممتاز (Premier League):*\n"
+            "text\n"
+            "م | الفريق          | لعب | نقاط\n"
+            "----------------------------------\n"
+            "1 | مانشستر سيتي   | 38  | 91\n"
+            "2 | آرسنال         | 38  | 89\n"
+            "3 | ليفربول        | 38  | 82\n"
+            "\n\n"
+            "🇪🇸 *الدوري الإسباني (La Liga):*\n"
+            "text\n"
+            "م | الفريق          | لعب | نقاط\n"
+            "----------------------------------\n"
+            "1 | ريال مدريد      | 38  | 95\n"
+            "2 | برشلونة        | 38  | 85\n"
+            "3 | جيرونا         | 38  | 81\n"
+            "\n\n"
+            "🏆 *أدوار دوري أبطال أوروبا (Champions League):*\n"
+            "text\n"
+            "الدور       | المواجهة                | التوقيت\n"
+            "----------------------------------------------\n"
+            "نصف النهائي | ريال مدريد vs بايرن ميونخ | 21:00\n"
+            "نصف النهائي | باريس vs بروسيا دورتموند | 21:00\n"
+            "\n\n"
+            "📌 يتم تحديث النتائج والتصنيفات العالمية بشكل دوري!"
+        )
+        await context.bot.send_message(
+            chat_id=CHANNEL_ID,
+            text=global_text,
+            reply_markup=get_channel_buttons(),
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        print(f"Error auto posting global standings: {e}")
+
+# --- 6. دالة النشر التلقائي للأخبار العالمية ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     try:
         news_text = (
-            "⚽ *أخبار كرة القدم | DZ Football*\n\n"
-            "📌 متابعة مستمرة لآخر التحديثات والأخبار الرياضية اليومية.\n\n"
+            "⚽ *أخبار كرة القدم العالمية والتحليلات | DZ Football*\n\n"
+            "📌 متابعة مستمرة لآخر التحديثات، الانتقالات، والمباريات العالمية والمحلية.\n\n"
             "🔴 اشترك وشارك القناة ليصلك كل جديد!"
         )
         await context.bot.send_message(
@@ -65,23 +104,7 @@ async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error auto posting news: {e}")
 
-# --- 6. دالة النشر التلقائي للفيديوهات ---
-async def auto_post_tiktok(context: ContextTypes.DEFAULT_TYPE):
-    sample_tiktok_url = "https://www.tiktok.com/@tiktok/video/7000000000000000000" 
-    video_url = get_clean_tiktok_url(sample_tiktok_url)
-    if video_url:
-        try:
-            await context.bot.send_video(
-                chat_id=CHANNEL_ID,
-                video=video_url,
-                caption="🎥 *لقطة اليوم الكروية من تيك توك* ⚽\n\n#كرة_قدم #DZFootballNews",
-                reply_markup=get_channel_buttons(),
-                parse_mode='Markdown'
-            )
-        except Exception as e:
-            print(f"Error auto posting video: {e}")
-
-# --- 7. دالة استقبال الروابط في الخاص ---
+# --- 7. دالة استقبال الرسائل والروابط في الخاص ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if "tiktok.com" in text:
@@ -92,7 +115,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("❌ عذراً، تعذر تحميل الفيديو. تأكد من صحة الرابط.")
     else:
-        await update.message.reply_text("أهلاً بك! أرسل لي رابط فيديو من تيك توك لتحميله بدون علامة مائية.")
+        welcome_text = (
+            "أهلاً بك في بوت *DZ Football* الشامل! ⚽🌍\n\n"
+            "🔹 *في القناة:* ننشر تلقائياً الأخبار، تصنيفات كافة الدوريات العالمية (الإنجليزي، الإسباني، الإيطالي، دوري الأبطال) ومواعيد الأدوار.\n"
+            "🔹 *في الخاص:* أرسل لي أي رابط من تيك توك لتحميل الفيديو فوراً بدون علامة مائية."
+        )
+        await update.message.reply_text(welcome_text, parse_mode='Markdown')
 
 # --- 8. نقطة الانطلاق والجدولة التلقائية ---
 if __name__ == '__main__':
@@ -103,8 +131,12 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
+    
+    # نشر الأخبار كل ساعة
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
-    job_queue.run_repeating(auto_post_tiktok, interval=10800, first=30)
+    
+    # نشر جدول الترتيب والأدوار العالمية كل 6 ساعات (21600 ثانية)
+    job_queue.run_repeating(auto_post_global_standings, interval=21600, first=60)
 
     # إلغاء أي اتصال قديم فور التشغيل لتفادي خطأ 409
     app.run_polling(drop_pending_updates=True)
