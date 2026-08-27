@@ -1,4 +1,5 @@
 import os
+import random
 import threading
 import requests
 import logging
@@ -29,7 +30,13 @@ def keep_alive():
 # --- 3. Bot & Channel Configuration ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
-RSS_NEWS_URL = "https://www.aljazeera.net/rss/sport"  # مصدر أخبار رياضة حقيقي وتلقائي
+
+# قائمة مصادر الأخبار الرياضية المتنوعة
+RSS_FEEDS = [
+    "https://www.aljazeera.net/rss/sport",
+    "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
+    "https://feeds.bbci.co.uk/arabic/rss.xml"
+]
 
 # --- 4. Bulletproof & HD TikTok Downloader ---
 def get_clean_tiktok_url(tiktok_url):
@@ -79,14 +86,15 @@ def get_channel_buttons():
 # --- 6. Auto Post REAL News to Channel ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     try:
-        feed = feedparser.parse(RSS_NEWS_URL)
+        selected_feed = random.choice(RSS_FEEDS)
+        feed = feedparser.parse(selected_feed)
         if feed.entries:
             latest = feed.entries[0]
             title = latest.title
             link = latest.link
             
             news_text = (
-                f"⚽ *عاجل | خبر رياضي جديد*\n\n"
+                f"⚽ *عاجل | تغطية إخبارية حصرية*\n\n"
                 f"🚨 *{title}*\n\n"
                 f"🔗 [اقرأ الخبر كاملاً من المصدر]({link})\n\n"
                 f"🔴 اشترك في القناة لتصلك أحدث الأخبار فور حدوثها!"
