@@ -2,6 +2,7 @@ import os
 import threading
 import requests
 import logging
+import feedparser
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -28,16 +29,14 @@ def keep_alive():
 # --- 3. Bot & Channel Configuration ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
+RSS_NEWS_URL = "https://www.aljazeera.net/rss/sport"  # مصدر أخبار رياضة حقيقي وتلقائي
 
 # --- 4. Bulletproof & HD TikTok Downloader ---
 def get_clean_tiktok_url(tiktok_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, /',
-        'Accept-Language': 'en-US,en;q=0.9',
     }
 
-    # Resolve shortened URLs (vt.tiktok.com)
     try:
         session = requests.Session()
         res_redirect = session.head(tiktok_url, allow_redirects=True, timeout=8, headers=headers)
@@ -45,7 +44,6 @@ def get_clean_tiktok_url(tiktok_url):
     except Exception:
         final_url = tiktok_url
 
-    # Primary API: TikWM (HD quality, no compression)
     try:
         api1 = f"https://www.tikwm.com/api/?url={final_url}&hd=1"
         r1 = requests.get(api1, headers=headers, timeout=10).json()
@@ -55,7 +53,6 @@ def get_clean_tiktok_url(tiktok_url):
     except Exception as e:
         logging.error(f"TikWM Primary HD API Error: {e}")
 
-    # Backup API 1: Douyin/SSSTik
     try:
         api2 = f"https://api.douyin.wtf/api?url={final_url}"
         r2 = requests.get(api2, headers=headers, timeout=10).json()
@@ -63,15 +60,6 @@ def get_clean_tiktok_url(tiktok_url):
             return r2.get("nwm_video_url")
     except Exception as e:
         logging.error(f"Backup API 1 Error: {e}")
-
-    # Backup API 2: Loovik Emergency Server
-    try:
-        api3 = f"https://api.loovik.com/tiktok?url={final_url}"
-        r3 = requests.get(api3, headers=headers, timeout=10).json()
-        if r3.get("video"):
-            return r3.get("video")
-    except Exception as e:
-        logging.error(f"Backup API 2 Error: {e}")
 
     return None
 
@@ -88,57 +76,31 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 6. Auto Post News to Channel ---
+# --- 6. Auto Post REAL News to Channel ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     try:
-        news_text = (
-            "⚽ *تغطية إخبارية حصرية | DZ Football*\n\n"
-            "🚨 *أبرز عناوين اليوم:*\n"
-            "• متابعة مستمرة لأحدث الانتقالات وأخبار المحترفين.\n"
-            "• تحضيرات مكثفة للأندية استعداداً للجولة القادمة.\n\n"
-            "🔴 اشترك وشارك القناة لتصلك الأخبار فور حدوثها!"
-        )
-        await context.bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=news_text,
-            reply_markup=get_channel_buttons(),
-            parse_mode='Markdown'
-        )
+        feed = feedparser.parse(RSS_NEWS_URL)
+        if feed.entries:
+            latest = feed.entries[0]
+            title = latest.title
+            link = latest.link
+            
+            news_text = (
+                f"⚽ *عاجل | خبر رياضي جديد*\n\n"
+                f"🚨 *{title}*\n\n"
+                f"🔗 [اقرأ الخبر كاملاً من المصدر]({link})\n\n"
+                f"🔴 اشترك في القناة لتصلك أحدث الأخبار فور حدوثها!"
+            )
+            await context.bot.send_message(
+                chat_id=CHANNEL_ID,
+                text=news_text,
+                reply_markup=get_channel_buttons(),
+                parse_mode='Markdown'
+            )
     except Exception as e:
-        logging.error(f"Error auto posting news: {e}")
+        logging.error(f"Error auto posting real news: {e}")
 
-# --- 7. Auto Post Standings to Channel ---
-async def auto_post_global_standings(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        global_text = (
-            "🌍 *ملخص تصنيف الدوريات العالمية والأدوار القادمة* ⚽\n\n"
-            "🏴󠁧󠁢󠁥󠁮󠁧󠁿 *الدوري الإنجليزي الممتاز (Premier League):*\n"
-            "text\n"
-            "م | الفريق          | لعب | نقاط\n"
-            "----------------------------------\n"
-            "1 | مانشستر سيتي   | 38  | 91\n"
-            "2 | آرسنال         | 38  | 89\n"
-            "3 | ليفربول        | 38  | 82\n"
-            "\n\n"
-            "🇪🇸 *الدوري الإسباني (La Liga):*\n"
-            "text\n"
-            "م | الفريق          | لعب | نقاط\n"
-            "----------------------------------\n"
-            "1 | ريال مدريد      | 38  | 95\n"
-            "2 | برشلونة        | 38  | 85\n"
-            "\n\n"
-            "📌 يتم تحديث النتائج والتصنيفات بشكل دوري!"
-        )
-        await context.bot.send_message(
-            chat_id=CHANNEL_ID,
-            text=global_text,
-            reply_markup=get_channel_buttons(),
-            parse_mode='Markdown'
-        )
-    except Exception as e:
-        logging.error(f"Error auto posting standings: {e}")
-
-# --- 8. Private Messages & Video Downloader Handler ---
+# --- 7. Private Messages & Video Downloader Handler ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if "tiktok.com" in text:
@@ -160,12 +122,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         welcome_text = (
             "أهلاً بك في بوت *DZ Football* الشامل! ⚽🌍\n\n"
-            "🔹 *في القناة:* ننشر تلقائياً الأخبار والتصنيفات العالمية.\n"
+            "🔹 *في القناة:* ننشر تلقائياً آخر الأخبار الرياضية الحقيقية.\n"
             "🔹 *في الخاص:* أرسل لي أي رابط من تيك توك لتحميله فوراً بأعلى جودة HD وبدون علامة مائية."
         )
         await update.message.reply_text(welcome_text, parse_mode='Markdown')
 
-# --- 9. Main Bot Execution ---
+# --- 8. Main Bot Execution ---
 if __name__ == '__main__':
     keep_alive()
     
@@ -174,6 +136,5 @@ if __name__ == '__main__':
 
     job_queue = app.job_queue
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
-    job_queue.run_repeating(auto_post_global_standings, interval=21600, first=60)
 
     app.run_polling(drop_pending_updates=True)
