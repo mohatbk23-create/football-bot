@@ -31,11 +31,14 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# قائمة مصادر الأخبار الرياضية المتنوعة
+# قائمة مصادر الأخبار الرياضية وكرة القدم المتنوعة
 RSS_FEEDS = [
     "https://www.aljazeera.net/rss/sport",
     "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
-    "https://feeds.bbci.co.uk/arabic/rss.xml"
+    "https://feeds.bbci.co.uk/arabic/rss.xml",
+    "https://www.kooora.com/rss.xml",
+    "https://www.filgoal.com/rss/news",
+    "https://www.yallakora.com/rss/rss.xml"
 ]
 
 # --- 4. Bulletproof & HD TikTok Downloader ---
