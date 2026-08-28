@@ -32,11 +32,23 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
+# --- 3. Bot & Channel Configuration ---
+TOKEN = os.environ.get("BOT_TOKEN")
+CHANNEL_ID = "@DZFootballNews"
+
+# قائمة روابط RSS للأخبار الرياضية
 RSS_FEEDS = [
-    "https://www.aljazeera.net/rss/sport",
-    "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
-    "https://feeds.bbci.co.uk/arabic/rss.xml",
-    "https://arabic.rt.com/rss/sport/"
+    # --- مصادر جزائرية ---
+    "https://www.echoroukonline.com/sport/feed",       # الشروق الرياضي
+    "https://www.elheddaf.com/rss",                   # الهداف الرياضية
+    "https://www.elkhabar.com/rss/sports",            # الخبر الرياضي
+    "https://www.aps.dz/sport/feed",                  # وكالة الأنباء الجزائرية - رياضة
+    
+    # --- مصادر عالمية وعربية سريعة ---
+    "https://www.aljazeera.net/rss/sport",            # الجزيرة نت رياضة
+    "https://www.skynewsarabian.com/rss/v1/endpoint/sport", # سكاي نيوز رياضة
+    "https://arabic.rt.com/rss/sport/",               # روسيا اليوم رياضة
+    "https://feeds.bbci.co.uk/arabic/rss.xml"          # بي بي سي عربي رياضة
 ]
 
 # --- 4. TikTok Downloader ---
@@ -44,7 +56,6 @@ def get_clean_tiktok_url(tiktok_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     }
-
     try:
         session = requests.Session()
         res_redirect = session.head(tiktok_url, allow_redirects=True, timeout=8, headers=headers)
