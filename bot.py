@@ -31,14 +31,12 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# قائمة مصادر الأخبار الرياضية وكرة القدم المتنوعة
+# مصادر إخبارية موثوقة ومستقرة 100% وبدون حظر
 RSS_FEEDS = [
     "https://www.aljazeera.net/rss/sport",
     "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
     "https://feeds.bbci.co.uk/arabic/rss.xml",
-    "https://www.kooora.com/rss.xml",
-    "https://www.filgoal.com/rss/news",
-    "https://www.yallakora.com/rss/rss.xml"
+    "https://arabic.rt.com/rss/sport/"
 ]
 
 # --- 4. Bulletproof & HD TikTok Downloader ---
@@ -86,30 +84,32 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 6. Auto Post REAL News to Channel ---
+# --- 6. Auto Post REAL News to Channel (مُحسّنة ومحمية) ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        selected_feed = random.choice(RSS_FEEDS)
-        feed = feedparser.parse(selected_feed)
-        if feed.entries:
-            latest = feed.entries[0]
-            title = latest.title
-            link = latest.link
-            
-            news_text = (
-                f"⚽ *عاجل | تغطية إخبارية حصرية*\n\n"
-                f"🚨 *{title}*\n\n"
-                f"🔗 [اقرأ الخبر كاملاً من المصدر]({link})\n\n"
-                f"🔴 اشترك في القناة لتصلك أحدث الأخبار فور حدوثها!"
-            )
-            await context.bot.send_message(
-                chat_id=CHANNEL_ID,
-                text=news_text,
-                reply_markup=get_channel_buttons(),
-                parse_mode='Markdown'
-            )
-    except Exception as e:
-        logging.error(f"Error auto posting real news: {e}")
+    random.shuffle(RSS_FEEDS)  # خلط القائمة لضمان التنويع
+    for feed_url in RSS_FEEDS:
+        try:
+            feed = feedparser.parse(feed_url)
+            if feed.entries:
+                latest = feed.entries[0]
+                title = latest.title
+                link = latest.link
+                
+                news_text = (
+                    f"⚽ *عاجل | تغطية إخبارية حصرية*\n\n"
+                    f"🚨 *{title}*\n\n"
+                    f"🔗 [اقرأ الخبر كاملاً من المصدر]({link})\n\n"
+                    f"🔴 اشترك في القناة لتصلك أحدث الأخبار فور حدوثها!"
+                )
+                await context.bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=news_text,
+                    reply_markup=get_channel_buttons(),
+                    parse_mode='Markdown'
+                )
+                break  # تم النشر بنجاح من أحد المصادر، الخروج من الحلقة
+        except Exception as e:
+            logging.error(f"فشل الجلب من المصدر {feed_url}: {e}")
 
 # --- 7. Private Messages & Video Downloader Handler ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -146,6 +146,7 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
+    # نشر خبر جديد فور التشغيل (بعد 10 ثوانٍ)، ثم تكرار النشر كل ساعة (3600 ثانية)
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
 
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True
