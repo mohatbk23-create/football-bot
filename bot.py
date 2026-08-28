@@ -51,52 +51,34 @@ RSS_FEEDS = [
     "https://feeds.bbci.co.uk/arabic/rss.xml"          # بي بي سي عربي رياضة
 ]
 
-# --- 4. TikTok Downloader (Enhanced Multi-API) ---
+# --- 4. TikTok Downloader (Stable Engine) ---
 def get_clean_tiktok_url(tiktok_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     }
-
-    # 1. حل الرابط المختصر واستخراج الرابط الكامل
-    final_url = tiktok_url
+    
+    # محاولة جلب رابط الفيديو المباشر عبر TikWM بدون حظر
     try:
-        res = requests.head(tiktok_url, allow_redirects=True, timeout=10, headers=headers)
-        final_url = res.url
+        api_url = f"https://www.tikwm.com/api/?url={tiktok_url}&hd=1"
+        res = requests.get(api_url, headers=headers, timeout=12).json()
+        if res.get("code") == 0 and "data" in res:
+            return res["data"].get("hdplay") or res["data"].get("play")
     except Exception as e:
-        logging.error(f"Redirect Error: {e}")
+        logging.error(f"TikWM Error: {e}")
 
-    # 2. المحرك الأول (TikWM)
+    # محرك احتياطي سريع (Cobalt API)
     try:
-        api1 = f"https://www.tikwm.com/api/?url={final_url}&hd=1"
-        r1 = requests.get(api1, headers=headers, timeout=12).json()
-        if r1.get("code") == 0 and r1.get("data"):
-            data = r1["data"]
-            return data.get("hdplay") or data.get("play")
+        cobalt_api = "https://co.wuk.sh/api/json"
+        payload = {"url": tiktok_url}
+        headers_cobalt = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        r = requests.post(cobalt_api, json=payload, headers=headers_cobalt, timeout=12).json()
+        if r.get("url"):
+            return r.get("url")
     except Exception as e:
-        logging.error(f"API 1 (TikWM) Error: {e}")
-
-    # 3. المحرك الثاني (SSSTik API)
-    try:
-        api2 = "https://ssstik.io/abc?url=dl"
-        post_data = {"id": final_url, "locale": "en", "tt": "1"}
-        r2 = requests.post(api2, data=post_data, headers=headers, timeout=12)
-        if "href" in r2.text:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(r2.text, 'html.parser')
-            download_link = soup.find("a", {"class": "download_link"})
-            if download_link and download_link.get("href"):
-                return download_link.get("href")
-    except Exception as e:
-        logging.error(f"API 2 (SSSTik) Error: {e}")
-
-    # 4. المحرك الثالث (LoFi TikTok API)
-    try:
-        api3 = f"https://api.tiklydown.eu.org/api/download?url={final_url}"
-        r3 = requests.get(api3, headers=headers, timeout=12).json()
-        if r3.get("video") and r3["video"].get("noWatermark"):
-            return r3["video"]["noWatermark"]
-    except Exception as e:
-        logging.error(f"API 3 (TiklyDown) Error: {e}")
+        logging.error(f"Cobalt API Error: {e}")
 
     return None
 
