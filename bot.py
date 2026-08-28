@@ -31,7 +31,7 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# مصادر إخبارية موثوقة ومستقرة 100% وبدون حظر
+# مصادر الأخبار الرياضية
 RSS_FEEDS = [
     "https://www.aljazeera.net/rss/sport",
     "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
@@ -39,7 +39,7 @@ RSS_FEEDS = [
     "https://arabic.rt.com/rss/sport/"
 ]
 
-# --- 4. Bulletproof & HD TikTok Downloader ---
+# --- 4. TikTok Downloader ---
 def get_clean_tiktok_url(tiktok_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -67,7 +67,7 @@ def get_clean_tiktok_url(tiktok_url):
         if r2.get("nwm_video_url"):
             return r2.get("nwm_video_url")
     except Exception as e:
-        logging.error(f"Backup API 1 Error: {e}")
+        logging.error(f"Backup API Error: {e}")
 
     return None
 
@@ -84,10 +84,11 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 6. Auto Post REAL News to Channel (مُحسّنة ومحمية) ---
+# --- 6. Auto Post REAL News to Channel ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
-    random.shuffle(RSS_FEEDS)  # خلط القائمة لضمان التنويع
-    for feed_url in RSS_FEEDS:
+    shuffled_feeds = list(RSS_FEEDS)
+    random.shuffle(shuffled_feeds)
+    for feed_url in shuffled_feeds:
         try:
             feed = feedparser.parse(feed_url)
             if feed.entries:
@@ -107,11 +108,11 @@ async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=get_channel_buttons(),
                     parse_mode='Markdown'
                 )
-                break  # تم النشر بنجاح من أحد المصادر، الخروج من الحلقة
+                break
         except Exception as e:
-            logging.error(f"فشل الجلب من المصدر {feed_url}: {e}")
+            logging.error(f"Error reading feed {feed_url}: {e}")
 
-# --- 7. Private Messages & Video Downloader Handler ---
+# --- 7. Private Messages Handler ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if "tiktok.com" in text:
@@ -146,7 +147,6 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
-    # نشر خبر جديد فور التشغيل (بعد 10 ثوانٍ)، ثم تكرار النشر كل ساعة (3600 ثانية)
     job_queue.run_repeating(auto_post_news, interval=3600, first=10)
 
-    app.run_polling(drop_pending_updates=True
+    app.run_polling(drop_pending_updates=True)
