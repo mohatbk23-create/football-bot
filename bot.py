@@ -7,6 +7,7 @@ import feedparser
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.error import TelegramError
 
 # --- 1. Logging Configuration ---
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -31,7 +32,6 @@ def keep_alive():
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = "@DZFootballNews"
 
-# مصادر الأخبار الرياضية
 RSS_FEEDS = [
     "https://www.aljazeera.net/rss/sport",
     "https://www.skynewsarabian.com/rss/v1/endpoint/sport",
@@ -84,7 +84,18 @@ def get_channel_buttons():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-# --- 6. Auto Post REAL News to Channel ---
+# --- 6. Helper Function: Check Subscribtion ---
+async def is_user_subscribed(bot, user_id):
+    try:
+        member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
+        if member.status in ['creator', 'administrator', 'member']:
+            return True
+        return False
+    except TelegramError as e:
+        logging.error(f"Check membership error: {e}")
+        return True  # في حالة حدوث خلل تقني يتم السماح للمستخدم لاستخدام البوت
+
+# --- 7. Auto Post REAL News to Channel ---
 async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
     shuffled_feeds = list(RSS_FEEDS)
     random.shuffle(shuffled_feeds)
@@ -112,8 +123,23 @@ async def auto_post_news(context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.error(f"Error reading feed {feed_url}: {e}")
 
-# --- 7. Private Messages Handler ---
+# --- 8. Private Messages & Force Subscribe Handler ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # فحص الاشتراك الإجباري
+    subscribed = await is_user_subscribed(context.bot, user_id)
+    if not subscribed:
+        sub_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📢 اشترك في القناة الآن", url="https://t.me/DZFootballNews")]
+        ])
+        must_sub_text = (
+            "⚠️ *تنبيه:* لاستخدام البوت وتحميل الفيديوهات مجاناً، يجب عليك الاشتراك في القناة الرسمية أولاً!\n\n"
+            "👇 اشترك الآن ثم أرسل رابط الفيديو مجدداً:"
+        )
+        await update.message.reply_text(must_sub_text, reply_markup=sub_keyboard, parse_mode='Markdown')
+        return
+
     text = update.message.text
     if "tiktok.com" in text:
         wait_msg = await update.message.reply_text("⏳ جاري استخراج الفيديو بجودة عالية HD بدون علامة مائية...")
@@ -139,7 +165,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await update.message.reply_text(welcome_text, parse_mode='Markdown')
 
-# --- 8. Main Bot Execution ---
+# --- 9. Main Bot Execution ---
 if __name__ == '__main__':
     keep_alive()
     
