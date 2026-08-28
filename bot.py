@@ -173,6 +173,6 @@ if __name__ == '__main__':
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     job_queue = app.job_queue
-    job_queue.run_repeating(auto_post_news, interval=3600, first=10)
+    job_queue.run_repeating(auto_post_news, interval=7200, first=10)
 
     app.run_polling(drop_pending_updates=True)
