@@ -51,34 +51,52 @@ RSS_FEEDS = [
     "https://feeds.bbci.co.uk/arabic/rss.xml"          # بي بي سي عربي رياضة
 ]
 
-# --- 4. TikTok Downloader ---
+# --- 4. TikTok Downloader (Enhanced Multi-API) ---
 def get_clean_tiktok_url(tiktok_url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     }
-    try:
-        session = requests.Session()
-        res_redirect = session.head(tiktok_url, allow_redirects=True, timeout=8, headers=headers)
-        final_url = res_redirect.url
-    except Exception:
-        final_url = tiktok_url
 
+    # 1. حل الرابط المختصر واستخراج الرابط الكامل
+    final_url = tiktok_url
+    try:
+        res = requests.head(tiktok_url, allow_redirects=True, timeout=10, headers=headers)
+        final_url = res.url
+    except Exception as e:
+        logging.error(f"Redirect Error: {e}")
+
+    # 2. المحرك الأول (TikWM)
     try:
         api1 = f"https://www.tikwm.com/api/?url={final_url}&hd=1"
-        r1 = requests.get(api1, headers=headers, timeout=10).json()
+        r1 = requests.get(api1, headers=headers, timeout=12).json()
         if r1.get("code") == 0 and r1.get("data"):
             data = r1["data"]
             return data.get("hdplay") or data.get("play")
     except Exception as e:
-        logging.error(f"TikWM Primary HD API Error: {e}")
+        logging.error(f"API 1 (TikWM) Error: {e}")
 
+    # 3. المحرك الثاني (SSSTik API)
     try:
-        api2 = f"https://api.douyin.wtf/api?url={final_url}"
-        r2 = requests.get(api2, headers=headers, timeout=10).json()
-        if r2.get("nwm_video_url"):
-            return r2.get("nwm_video_url")
+        api2 = "https://ssstik.io/abc?url=dl"
+        post_data = {"id": final_url, "locale": "en", "tt": "1"}
+        r2 = requests.post(api2, data=post_data, headers=headers, timeout=12)
+        if "href" in r2.text:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(r2.text, 'html.parser')
+            download_link = soup.find("a", {"class": "download_link"})
+            if download_link and download_link.get("href"):
+                return download_link.get("href")
     except Exception as e:
-        logging.error(f"Backup API Error: {e}")
+        logging.error(f"API 2 (SSSTik) Error: {e}")
+
+    # 4. المحرك الثالث (LoFi TikTok API)
+    try:
+        api3 = f"https://api.tiklydown.eu.org/api/download?url={final_url}"
+        r3 = requests.get(api3, headers=headers, timeout=12).json()
+        if r3.get("video") and r3["video"].get("noWatermark"):
+            return r3["video"]["noWatermark"]
+    except Exception as e:
+        logging.error(f"API 3 (TiklyDown) Error: {e}")
 
     return None
 
